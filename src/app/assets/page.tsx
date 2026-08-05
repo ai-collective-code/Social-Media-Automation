@@ -81,7 +81,7 @@ export default async function AssetsPage() {
                 </Badge>
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Needs ANTHROPIC_API_KEY. Draft copy currently lives in mock data.
+                Needs LLM_API_KEY. Draft copy currently lives in mock data.
               </p>
             </div>
           </div>
