@@ -1,39 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card, Badge, Button } from "@/components/ui";
-import { qcStatusMeta, type Post, type QCStatus } from "@/lib/mock-data";
+import { qcStatusMeta, type Post } from "@/lib/mock-data";
+import type { QCDecision, QCStatus } from "@/lib/qc-store";
+import { decidePost, toggleCheck } from "./actions";
 
-export default function QualityCheckClient({ initialPosts }: { initialPosts: Post[] }) {
-  const [items, setItems] = useState(initialPosts);
+export default function QualityCheckClient({
+  posts,
+  decisions,
+}: {
+  posts: Post[];
+  decisions: Record<string, QCDecision>;
+}) {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [pending, startTransition] = useTransition();
 
-  const post = items[index];
-  const qc = qcStatusMeta[post.qc.status];
+  const post = posts[index];
+  const decision = decisions[post.id];
 
-  function updateStatus(status: QCStatus) {
-    setItems((prev) =>
-      prev.map((p, i) =>
-        i === index
-          ? { ...p, qc: { ...p.qc, status, feedback: status === "revision_requested" ? feedback : undefined } }
-          : p
-      )
-    );
-    setFeedback("");
+  // Persisted decision wins; the seeded value in mock-data is only a fallback
+  // for posts nobody has reviewed yet.
+  const status: QCStatus = decision?.status ?? post.qc.status;
+  const meta = qcStatusMeta[status];
+  const savedFeedback = decision?.feedback ?? post.qc.feedback;
+
+  function checkState(kind: "visual" | "copy", i: number): boolean | null {
+    const key = `${kind}:${i}`;
+    if (decision?.checks && key in decision.checks) return decision.checks[key];
+    const seeded =
+      kind === "visual" ? post.qc.visualChecks[i]?.passed : post.qc.copyChecks[i]?.passed;
+    return seeded ?? null;
   }
 
-  function toggleCheck(kind: "visualChecks" | "copyChecks", checkIdx: number) {
-    setItems((prev) =>
-      prev.map((p, i) => {
-        if (i !== index) return p;
-        const checks = p.qc[kind].map((c, ci) =>
-          ci === checkIdx ? { ...c, passed: c.passed === true ? false : true } : c
-        );
-        return { ...p, qc: { ...p.qc, [kind]: checks } };
-      })
-    );
+  function decide(next: QCStatus) {
+    startTransition(async () => {
+      await decidePost(post.id, next, next === "revision_requested" ? feedback : undefined);
+      setFeedback("");
+    });
   }
+
+  function flip(kind: "visual" | "copy", i: number) {
+    const current = checkState(kind, i);
+    startTransition(async () => {
+      await toggleCheck(post.id, `${kind}:${i}`, current !== true);
+    });
+  }
+
+  const approvedCount = posts.filter(
+    (p) => (decisions[p.id]?.status ?? p.qc.status) === "approved"
+  ).length;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -45,7 +62,10 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
             </p>
             <h2 className="text-lg font-semibold text-white">{post.topic}</h2>
           </div>
-          <Badge className={qc.className}>{qc.label}</Badge>
+          <div className="flex items-center gap-2">
+            {pending && <span className="text-xs text-slate-500">Saving…</span>}
+            <Badge className={meta.className}>{meta.label}</Badge>
+          </div>
         </div>
 
         <Card>
@@ -58,8 +78,9 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
               <CheckRow
                 key={check.label}
                 label={check.label}
-                passed={check.passed}
-                onToggle={() => toggleCheck("visualChecks", i)}
+                passed={checkState("visual", i)}
+                disabled={pending}
+                onToggle={() => flip("visual", i)}
               />
             ))}
           </div>
@@ -78,8 +99,9 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
               <CheckRow
                 key={check.label}
                 label={check.label}
-                passed={check.passed}
-                onToggle={() => toggleCheck("copyChecks", i)}
+                passed={checkState("copy", i)}
+                disabled={pending}
+                onToggle={() => flip("copy", i)}
               />
             ))}
           </div>
@@ -87,9 +109,9 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
 
         <Card>
           <p className="mb-3 text-sm font-semibold text-white">Decision</p>
-          {post.qc.feedback && (
+          {savedFeedback && (
             <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-              Previous feedback: {post.qc.feedback}
+              Feedback on record: {savedFeedback}
             </p>
           )}
           <textarea
@@ -99,31 +121,39 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
             className="mb-3 w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
             rows={2}
           />
-          <div className="flex gap-3">
-            <Button variant="primary" onClick={() => updateStatus("approved")}>
+          <div className="flex items-center gap-3">
+            <Button variant="primary" disabled={pending} onClick={() => decide("approved")}>
               Approve
             </Button>
-            <Button variant="danger" onClick={() => updateStatus("revision_requested")}>
+            <Button
+              variant="danger"
+              disabled={pending}
+              onClick={() => decide("revision_requested")}
+            >
               Request revision
             </Button>
+            {status !== "pending" && (
+              <Button variant="ghost" disabled={pending} onClick={() => decide("pending")}>
+                Reset
+              </Button>
+            )}
           </div>
+          <p className="mt-3 text-xs text-slate-600">
+            Decisions are saved to disk and survive a refresh.
+          </p>
         </Card>
 
         <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            disabled={index === 0}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          >
+          <Button variant="ghost" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>
             ← Previous
           </Button>
           <span className="text-sm text-slate-500">
-            {post.day} ({index + 1} / {items.length})
+            {post.day} ({index + 1} / {posts.length}) · {approvedCount} approved
           </span>
           <Button
             variant="ghost"
-            disabled={index === items.length - 1}
-            onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
+            disabled={index === posts.length - 1}
+            onClick={() => setIndex((i) => i + 1)}
           >
             Next →
           </Button>
@@ -132,8 +162,9 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
 
       <div className="space-y-3">
         <p className="text-sm font-semibold text-white">All posts</p>
-        {items.map((p, i) => {
-          const meta = qcStatusMeta[p.qc.status];
+        {posts.map((p, i) => {
+          const s = decisions[p.id]?.status ?? p.qc.status;
+          const m = qcStatusMeta[s];
           return (
             <button
               key={p.id}
@@ -146,7 +177,7 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
             >
               <p className="font-medium text-white">{p.day}</p>
               <p className="truncate text-xs text-slate-400">{p.topic}</p>
-              <Badge className={`mt-1 ${meta.className}`}>{meta.label}</Badge>
+              <Badge className={`mt-1 ${m.className}`}>{m.label}</Badge>
             </button>
           );
         })}
@@ -158,16 +189,19 @@ export default function QualityCheckClient({ initialPosts }: { initialPosts: Pos
 function CheckRow({
   label,
   passed,
+  disabled,
   onToggle,
 }: {
   label: string;
   passed: boolean | null;
+  disabled?: boolean;
   onToggle: () => void;
 }) {
   return (
     <button
       onClick={onToggle}
-      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5"
+      disabled={disabled}
+      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5 disabled:opacity-60"
     >
       <span
         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
