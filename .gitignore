@@ -38,8 +38,11 @@ yarn-error.log*
 # vercel
 .vercel
 
-# runtime data (research requests/results — generated, not source)
+# runtime data (research requests/results, image jobs — generated, not source)
 /data/
+
+# generated design assets downloaded from Canva
+/public/generated/
 
 # typescript
 *.tsbuildinfo
