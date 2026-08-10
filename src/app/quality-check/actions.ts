@@ -6,11 +6,13 @@ import { saveDecision, saveChecks, type QCStatus } from "@/lib/qc-store";
 export async function decidePost(
   postId: string,
   status: QCStatus,
-  feedback?: string
+  feedback?: string,
+  requestId?: string
 ) {
   if (!postId) throw new Error("postId is required");
   await saveDecision({
     postId,
+    requestId,
     status,
     feedback: feedback?.trim() || undefined,
     decidedAt: new Date().toISOString(),
@@ -24,9 +26,10 @@ export async function decidePost(
 export async function toggleCheck(
   postId: string,
   checkKey: string,
-  passed: boolean
+  passed: boolean,
+  requestId?: string
 ) {
   if (!postId || !checkKey) throw new Error("postId and checkKey are required");
-  await saveChecks(postId, { [checkKey]: passed });
+  await saveChecks(postId, { [checkKey]: passed }, requestId);
   revalidatePath("/quality-check");
 }

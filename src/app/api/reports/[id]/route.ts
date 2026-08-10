@@ -6,6 +6,8 @@ const VALID: ReportId[] = [
   "asset-log",
   "trend-analysis",
   "content-strategy",
+  "content-bucketing",
+  "creative-director",
   "publishing-log",
 ];
 

@@ -1,5 +1,5 @@
 import TopBar from "@/components/TopBar";
-import { Card, Badge } from "@/components/ui";
+import { Badge, Card, Dot, SectionHeading } from "@/components/ui";
 import { listReports } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
@@ -12,55 +12,66 @@ export default async function ReportsPage() {
     <>
       <TopBar title="Reports" subtitle="Generated from real pipeline data" />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">
-              Available reports
-              <span className="ml-2 font-normal text-slate-500">
+          <SectionHeading
+            title="Available reports"
+            subtitle={
+              <span className="tabular">
                 {ready.length} of {reports.length} ready
               </span>
-            </p>
-          </div>
+            }
+          />
 
-          <div className="divide-y divide-white/10">
+          <div className="mt-4 divide-y divide-line">
             {reports.map((report) => (
               <div
                 key={report.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3.5 first:pt-0 last:pb-0"
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">{report.name}</p>
+                <div className="min-w-0 flex-1 basis-64">
+                  <p className="text-sm font-medium text-fg">{report.name}</p>
                   {report.blockedReason ? (
-                    <p className="mt-0.5 text-xs text-slate-500">{report.blockedReason}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-fg-3">
+                      {report.blockedReason}
+                    </p>
                   ) : (
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      Markdown{report.updated ? ` · updated ${report.updated}` : ""}
+                    <p className="mt-1 text-xs text-fg-3">
+                      Markdown
+                      {report.updated && (
+                        <>
+                          {" · updated "}
+                          <span className="tabular">{report.updated}</span>
+                        </>
+                      )}
                     </p>
                   )}
                 </div>
 
-                {report.blockedReason ? (
-                  <Badge className="border-slate-500/30 bg-slate-500/10 text-slate-400">
-                    Not available yet
-                  </Badge>
-                ) : (
-                  <a
-                    href={`/api/reports/${report.id}`}
-                    download
-                    className="rounded-lg bg-emerald-500 px-3.5 py-2 text-sm font-medium text-slate-950 transition-colors hover:bg-emerald-400"
-                  >
-                    Download .md
-                  </a>
-                )}
+                <div className="shrink-0">
+                  {report.blockedReason ? (
+                    <Badge tone="warn">
+                      <Dot tone="warn" />
+                      Not available yet
+                    </Badge>
+                  ) : (
+                    <a
+                      href={`/api/reports/${report.id}`}
+                      download
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+                    >
+                      Download .md
+                    </a>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </Card>
 
         <Card>
-          <p className="text-sm font-semibold text-white">How these work</p>
-          <p className="mt-2 text-sm text-slate-400">
+          <SectionHeading title="How these work" />
+          <p className="mt-2 text-sm leading-relaxed text-fg-2">
             Each report is generated on request from the data actually on disk — competitor
             research results, QC decisions, and the Canva asset log. A report only offers a
             download when its underlying workflow has produced something; the rest state what

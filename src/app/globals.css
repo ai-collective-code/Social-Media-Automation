@@ -1,18 +1,302 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens
+
+   Every colour in the app resolves through one of these semantic tokens, so a
+   theme is a single set of variable definitions rather than a `dark:` prefix on
+   every utility. Three rules:
+
+     1. Light values live on :root.
+     2. Dark values are applied when the OS asks for dark AND the user has not
+        explicitly chosen light.
+     3. An explicit [data-theme] choice always wins over the OS preference.
+
+   `accent` is the product's own hue (violet) and is deliberately separate from
+   the status hues below — approved/warning/running/failed must never read as
+   "branded", and the accent must never read as "good".
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  --canvas: #f7f7fb;
+  --canvas-raised: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f0f0f6;
+  --surface-3: #e7e7f0;
+  --line: #e3e3ed;
+  --line-strong: #c9c9da;
+
+  --fg: #14152a;
+  --fg-2: #4b4c66;
+  --fg-3: #767892;
+  --fg-inverse: #ffffff;
+
+  --accent: #5b44e0;
+  --accent-hover: #4a34d0;
+  --accent-fg: #ffffff;
+  --accent-soft: #edeaff;
+  --accent-border: #c9befb;
+
+  --good: #12784f;
+  --good-soft: #e2f5ec;
+  --good-border: #a8ddc4;
+
+  --warn: #8a5a0b;
+  --warn-soft: #fdf1dc;
+  --warn-border: #ecca8e;
+
+  --run: #205d9e;
+  --run-soft: #e4eefa;
+  --run-border: #a6c8ea;
+
+  --bad: #a82a42;
+  --bad-soft: #fdeaee;
+  --bad-border: #f0b3c0;
+
+  --ring: #5b44e0;
+  --shadow-color: 235 30% 40%;
+
+  color-scheme: light;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0b0d17;
+    --canvas-raised: #10121f;
+    --surface: #10121f;
+    --surface-2: #171a2b;
+    --surface-3: #1f2337;
+    --line: #262941;
+    --line-strong: #3a3e5c;
+
+    --fg: #e9e9f4;
+    --fg-2: #a9aac4;
+    --fg-3: #7b7d9b;
+    --fg-inverse: #0b0d17;
+
+    --accent: #a794ff;
+    --accent-hover: #b9aaff;
+    --accent-fg: #14102e;
+    --accent-soft: #1d1a3c;
+    --accent-border: #3b3372;
+
+    --good: #4fbf8b;
+    --good-soft: #10281f;
+    --good-border: #245c43;
+
+    --warn: #dca33c;
+    --warn-soft: #291f10;
+    --warn-border: #5c4522;
+
+    --run: #6ba6e8;
+    --run-soft: #101d2c;
+    --run-border: #24425f;
+
+    --bad: #ec7189;
+    --bad-soft: #2a1219;
+    --bad-border: #5e2634;
+
+    --ring: #a794ff;
+    --shadow-color: 240 60% 3%;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0b0d17;
+  --canvas-raised: #10121f;
+  --surface: #10121f;
+  --surface-2: #171a2b;
+  --surface-3: #1f2337;
+  --line: #262941;
+  --line-strong: #3a3e5c;
+
+  --fg: #e9e9f4;
+  --fg-2: #a9aac4;
+  --fg-3: #7b7d9b;
+  --fg-inverse: #0b0d17;
+
+  --accent: #a794ff;
+  --accent-hover: #b9aaff;
+  --accent-fg: #14102e;
+  --accent-soft: #1d1a3c;
+  --accent-border: #3b3372;
+
+  --good: #4fbf8b;
+  --good-soft: #10281f;
+  --good-border: #245c43;
+
+  --warn: #dca33c;
+  --warn-soft: #291f10;
+  --warn-border: #5c4522;
+
+  --run: #6ba6e8;
+  --run-soft: #101d2c;
+  --run-border: #24425f;
+
+  --bad: #ec7189;
+  --bad-soft: #2a1219;
+  --bad-border: #5e2634;
+
+  --ring: #a794ff;
+  --shadow-color: 240 60% 3%;
+
+  color-scheme: dark;
+}
+
+/* Expose the tokens to Tailwind as utility-generating colours. `inline` keeps
+   the var() reference in the generated rule, so utilities follow the theme
+   without being duplicated per theme. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-canvas-raised: var(--canvas-raised);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-fg-inverse: var(--fg-inverse);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-good-border: var(--good-border);
+
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-border: var(--warn-border);
+
+  --color-run: var(--run);
+  --color-run-soft: var(--run-soft);
+  --color-run-border: var(--run-border);
+
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-bad-border: var(--bad-border);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* --------------------------------------------------------------------------- */
+
+* {
+  border-color: var(--line);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--canvas);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* One visible focus treatment for every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Digits that sit in columns should line up. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Truncate to a fixed number of lines. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* Scrollbars that don't fight the theme. */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid var(--canvas);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-3);
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.animate-fade-rise {
+  animation: fade-rise 0.22s ease-out both;
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s ease-out both;
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

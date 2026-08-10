@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import ThemeScript from "@/components/ThemeScript";
+import { listBrands } from "@/lib/brand-store";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,20 +17,27 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Social Automation Platform",
-  description: "Social media automation pipeline: strategy, creative, execution, QC, publishing.",
+  description:
+    "Social media automation pipeline: strategy, creative, execution, QC, publishing.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Fetched here so the brand switcher is available in the shell on every page.
+  const brands = await listBrands();
+
   return (
+    // suppressHydrationWarning: ThemeScript sets data-theme during parsing,
+    // before React hydrates, so the DOM legitimately differs from the payload.
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full bg-slate-900 text-slate-100">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="bg-canvas text-fg">
+        <AppShell brands={brands}>{children}</AppShell>
       </body>
     </html>
   );
