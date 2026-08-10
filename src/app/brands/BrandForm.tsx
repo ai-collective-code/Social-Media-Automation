@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { saveBrand, type BrandFormState } from "./actions";
 import { PLATFORM_OPTIONS, type Brand } from "@/lib/brand-types";
@@ -8,9 +8,60 @@ import { Button, Card, Field, Input, Textarea, Label, Callout } from "@/componen
 
 const EMPTY: BrandFormState = {};
 
+/**
+ * Must match the same literal in BrandGeneratorClient.tsx. Kept as a plain
+ * duplicated string rather than a shared constant: the shared module would
+ * need to be import-free to stay client-safe, and for one string used in
+ * exactly two places that's more ceremony than the duplication it avoids.
+ */
+const DRAFT_STORAGE_KEY = "brandDraft:v1";
+
 export default function BrandForm({ brand }: { brand?: Brand }) {
   const [state, formAction, pending] = useActionState(saveBrand, EMPTY);
   const err = state.fieldErrors ?? {};
+
+  // Autofills from a draft the generator page stashed, consumed once. Never
+  // runs against an existing brand — editing must only ever show that
+  // brand's own saved values, not a leftover draft from a different flow.
+  useEffect(() => {
+    if (brand) return;
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+
+    let draft: Record<string, unknown>;
+    try {
+      draft = JSON.parse(raw);
+    } catch {
+      return; // malformed draft — a best-effort convenience feature, nothing to surface
+    }
+
+    const setVal = (id: string, value: unknown) => {
+      if (typeof value !== "string" || !value) return;
+      const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) el.value = value;
+    };
+    for (const id of [
+      "name",
+      "industry",
+      "domain",
+      "description",
+      "audience",
+      "markets",
+      "voice",
+      "neverSay",
+      "avoidVisuals",
+      "language",
+    ]) {
+      setVal(id, draft[id]);
+    }
+    if (Array.isArray(draft.platforms)) {
+      for (const p of draft.platforms) {
+        const checkbox = document.querySelector<HTMLInputElement>(`input[name="platform:${p}"]`);
+        if (checkbox) checkbox.checked = true;
+      }
+    }
+  }, [brand]);
 
   // On a validation round-trip the server echoes back what was typed, so the
   // form doesn't clear itself and lose the user's work.

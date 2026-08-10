@@ -2,11 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button, Card, Callout, Field, Input, Label } from "@/components/ui";
 import { generateFields, type GenerateState } from "./actions";
 
 const IDLE: GenerateState = { status: "idle" };
+
+/** Must match the same literal in BrandForm.tsx — see the comment there. */
+const DRAFT_STORAGE_KEY = "brandDraft:v1";
 
 /** Order matches the brand form top to bottom, so copying feels like reading down one form into another. */
 const FIELDS: { key: string; label: string; hint?: string }[] = [
@@ -24,6 +27,19 @@ const FIELDS: { key: string; label: string; hint?: string }[] = [
 
 export default function BrandGeneratorClient() {
   const [state, formAction] = useActionState<GenerateState, FormData>(generateFields, IDLE);
+  const router = useRouter();
+
+  function autofillForm() {
+    if (state.status !== "done") return;
+    // Stashed, not sent — the New Brand form reads and clears this itself on
+    // mount, so it works with a plain client navigation rather than a
+    // server round-trip, and nothing here has written a brand record.
+    sessionStorage.setItem(
+      DRAFT_STORAGE_KEY,
+      JSON.stringify({ name: state.companyName, ...state.draft }),
+    );
+    router.push("/brands/new");
+  }
 
   return (
     <div className="grid gap-5">
@@ -54,13 +70,15 @@ export default function BrandGeneratorClient() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <Label>Draft for {state.companyName}</Label>
-            <Link
-              href="/brands/new"
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              Open the brand form →
-            </Link>
+            <Button type="button" size="sm" onClick={autofillForm}>
+              Autofill the New Brand form →
+            </Button>
           </div>
+          <p className="mt-1.5 text-xs text-fg-3">
+            Fills every field on the New Brand form for you to review and edit before saving —
+            nothing is saved from here. Copy a single field below instead if you only want to
+            drop one value into an existing brand.
+          </p>
           <div className="mt-3 grid gap-3">
             {FIELDS.map((f) => (
               <FieldRow
