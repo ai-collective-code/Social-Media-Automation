@@ -47,3 +47,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# desktop build outputs — release-resources/app.env contains live API keys
+/release/
+/release-resources/

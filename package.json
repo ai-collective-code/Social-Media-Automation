@@ -6,21 +6,73 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "desktop:stage": "node electron/build-desktop.mjs",
+    "desktop:dev": "electron .",
+    "desktop:build": "next build && node electron/build-desktop.mjs && electron-builder --win --publish never"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "ffmpeg-static": "^5.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "main": "electron/main.js",
+  "description": "Multi-brand social content pipeline: research, strategy, assets and reels.",
+  "author": "AI Collective",
+  "build": {
+    "appId": "agency.aicollective.contentengine",
+    "productName": "Content Engine",
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "electron/main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "release-resources",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Content Engine"
+    },
+    "compression": "maximum"
   }
 }
