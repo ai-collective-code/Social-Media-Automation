@@ -1,9 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { dataDir } from "@/lib/app-paths";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const REQUESTS_FILE = path.join(DATA_DIR, "requests.json");
-const RESULTS_DIR = path.join(DATA_DIR, "results");
+
+const REQUESTS_FILE = path.join(dataDir(), "requests.json");
+const RESULTS_DIR = path.join(dataDir(), "results");
 
 export type Competitor = { name: string; url?: string };
 
@@ -94,4 +95,24 @@ export async function getResult(id: string): Promise<ResearchResult | undefined>
   } catch {
     return undefined;
   }
+}
+
+export async function saveResult(result: ResearchResult): Promise<void> {
+  await ensureDataDir();
+  await fs.writeFile(
+    path.join(RESULTS_DIR, `${result.requestId}.json`),
+    JSON.stringify(result, null, 2),
+    "utf-8"
+  );
+}
+
+export async function setRequestStatus(
+  id: string,
+  status: ResearchStatus
+): Promise<void> {
+  const requests = await listRequests();
+  const req = requests.find((r) => r.id === id);
+  if (!req) return;
+  req.status = status;
+  await saveRequests(requests);
 }

@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { dataDir } from "@/lib/app-paths";
 
 /**
  * Persisted Quality Check decisions (workflow 7).
@@ -10,13 +11,20 @@ import path from "path";
  * they have to outlive the page.
  */
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const QC_FILE = path.join(DATA_DIR, "qc-decisions.json");
+
+const QC_FILE = path.join(dataDir(), "qc-decisions.json");
 
 export type QCStatus = "approved" | "revision_requested" | "pending";
 
 export type QCDecision = {
   postId: string;
+  /**
+   * The research request this decision belongs to. Optional only for
+   * decisions saved before multi-brand support: bucket post ids like
+   * "MON_001" are day-based and repeat across brands and runs, so without
+   * this two brands' Monday posts share one decision record.
+   */
+  requestId?: string;
   status: QCStatus;
   feedback?: string;
   /** Checklist state, keyed "visual:0" / "copy:3". Omitted entries = untouched. */
@@ -24,8 +32,16 @@ export type QCDecision = {
   decidedAt: string;
 };
 
+/**
+ * Storage key for one decision. Request-scoped when a request is known, and
+ * the bare post id otherwise so pre-existing mock-data decisions still resolve.
+ */
+export function qcKeyFor(postId: string, requestId?: string): string {
+  return requestId ? `${requestId}:${postId}` : postId;
+}
+
 async function ensureDataDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
 }
 
 export async function listDecisions(): Promise<Record<string, QCDecision>> {
@@ -40,19 +56,22 @@ export async function listDecisions(): Promise<Record<string, QCDecision>> {
 
 export async function saveDecision(decision: QCDecision): Promise<void> {
   const all = await listDecisions();
-  all[decision.postId] = decision;
+  all[qcKeyFor(decision.postId, decision.requestId)] = decision;
   await fs.writeFile(QC_FILE, JSON.stringify(all, null, 2), "utf-8");
 }
 
 /** Merge one post's checklist toggle without disturbing its status. */
 export async function saveChecks(
   postId: string,
-  checks: Record<string, boolean>
+  checks: Record<string, boolean>,
+  requestId?: string
 ): Promise<void> {
   const all = await listDecisions();
-  const existing = all[postId];
-  all[postId] = {
+  const key = qcKeyFor(postId, requestId);
+  const existing = all[key];
+  all[key] = {
     postId,
+    requestId,
     status: existing?.status ?? "pending",
     feedback: existing?.feedback,
     checks: { ...(existing?.checks ?? {}), ...checks },

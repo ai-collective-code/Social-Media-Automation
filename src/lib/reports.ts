@@ -1,5 +1,11 @@
 import { posts } from "@/lib/mock-data";
 import { listRequests, getResult } from "@/lib/research-store";
+import {
+  getTrendResult,
+  getStrategyResult,
+  getBucketResult,
+  getCreativeResult,
+} from "@/lib/pipeline-store";
 import { listImageJobs } from "@/lib/canva-store";
 import { listDecisions } from "@/lib/qc-store";
 
@@ -17,6 +23,8 @@ export type ReportId =
   | "asset-log"
   | "trend-analysis"
   | "content-strategy"
+  | "content-bucketing"
+  | "creative-director"
   | "publishing-log";
 
 export type ReportMeta = {
@@ -40,8 +48,16 @@ export async function listReports(): Promise<ReportMeta[]> {
   ]);
 
   const completedResearch = [];
+  const completedTrends = [];
+  const completedStrategy = [];
+  const completedBucketing = [];
+  const completedCreative = [];
   for (const r of requests) {
     if ((await getResult(r.id)) !== undefined) completedResearch.push(r);
+    if ((await getTrendResult(r.id)) !== undefined) completedTrends.push(r);
+    if ((await getStrategyResult(r.id)) !== undefined) completedStrategy.push(r);
+    if ((await getBucketResult(r.id)) !== undefined) completedBucketing.push(r);
+    if ((await getCreativeResult(r.id)) !== undefined) completedCreative.push(r);
   }
 
   const doneJobs = jobs.filter((j) => j.status === "complete");
@@ -80,12 +96,38 @@ export async function listReports(): Promise<ReportMeta[]> {
     {
       id: "trend-analysis",
       name: "Trend Analysis Report",
-      blockedReason: "Requires workflow 2 — needs LLM_API_KEY and the pipeline",
+      blockedReason:
+        completedTrends.length === 0
+          ? "No completed trend analysis yet — run it from a research request's detail page"
+          : undefined,
+      updated: fmt(completedTrends[0]?.createdAt),
     },
     {
       id: "content-strategy",
       name: "Content Strategy Report",
-      blockedReason: "Requires workflow 3 — needs LLM_API_KEY and the pipeline",
+      blockedReason:
+        completedStrategy.length === 0
+          ? "No completed content strategy yet — run Trend Analysis then Content Strategy from a research request's detail page"
+          : undefined,
+      updated: fmt(completedStrategy[0]?.createdAt),
+    },
+    {
+      id: "content-bucketing",
+      name: "Content Bucketing Report",
+      blockedReason:
+        completedBucketing.length === 0
+          ? "No completed content bucketing yet — run Content Strategy then Content Bucketing from a research request's detail page"
+          : undefined,
+      updated: fmt(completedBucketing[0]?.createdAt),
+    },
+    {
+      id: "creative-director",
+      name: "Creative Director Briefs",
+      blockedReason:
+        completedCreative.length === 0
+          ? "No completed creative briefs yet — run Content Bucketing then Creative Director from a research request's detail page"
+          : undefined,
+      updated: fmt(completedCreative[0]?.createdAt),
     },
     {
       id: "publishing-log",
@@ -196,6 +238,153 @@ export async function renderReport(id: ReportId): Promise<string | null> {
       );
     }
     return lines.join("\n");
+  }
+
+  if (id === "trend-analysis") {
+    const requests = await listRequests();
+    const lines: string[] = ["# Trend Analysis Report", "", `Generated: ${stamp}`, ""];
+    let any = false;
+
+    for (const req of requests) {
+      const result = await getTrendResult(req.id);
+      if (!result) continue;
+      any = true;
+      lines.push(`## ${req.companyName}`, "");
+
+      for (const t of result.trends) {
+        lines.push(
+          `### ${t.name}`,
+          "",
+          `- Growth signal: ${t.growthSignal}`,
+          `- Competitor gap: ${t.competitorGap}`,
+          `- Opportunity: ${t.opportunity}`,
+          ""
+        );
+      }
+
+      if (result.recommendedActions.length) {
+        lines.push("### Recommended actions", "");
+        result.recommendedActions.forEach((a) => lines.push(`- ${a}`));
+        lines.push("");
+      }
+      if (result.sources.length) lines.push(`Sources: ${result.sources.join(", ")}`, "");
+    }
+
+    return any ? lines.join("\n") : null;
+  }
+
+  if (id === "content-strategy") {
+    const requests = await listRequests();
+    const lines: string[] = ["# Content Strategy Report", "", `Generated: ${stamp}`, ""];
+    let any = false;
+
+    for (const req of requests) {
+      const result = await getStrategyResult(req.id);
+      if (!result) continue;
+      any = true;
+      lines.push(`## ${req.companyName}`, "");
+
+      lines.push("### Content pillars", "");
+      for (const p of result.pillars) {
+        lines.push(`- **${p.name}** (${p.percentage}%) — ${p.rationale}`);
+      }
+      lines.push("");
+
+      lines.push("### Buyer journey mapping", "");
+      lines.push("| Stage | Pillar | Posts/week |", "|---|---|---|");
+      for (const j of result.buyerJourney) {
+        lines.push(`| ${j.stage} | ${j.pillar} | ${j.postsPerWeek} |`);
+      }
+      lines.push("");
+
+      lines.push("### Platform strategy", "", result.platformStrategy, "");
+
+      if (result.successMetrics.length) {
+        lines.push("### Success metrics", "");
+        result.successMetrics.forEach((m) => lines.push(`- ${m}`));
+        lines.push("");
+      }
+    }
+
+    return any ? lines.join("\n") : null;
+  }
+
+  if (id === "content-bucketing") {
+    const requests = await listRequests();
+    const lines: string[] = ["# Content Bucketing Report", "", `Generated: ${stamp}`, ""];
+    let any = false;
+
+    for (const req of requests) {
+      const result = await getBucketResult(req.id);
+      if (!result) continue;
+      any = true;
+      lines.push(`## ${req.companyName}`, "");
+      lines.push(
+        "| Day | Time | Platform | Pillar | Topic | Why |",
+        "|---|---|---|---|---|---|"
+      );
+      for (const p of result.posts) {
+        lines.push(
+          `| ${p.day} | ${p.time} | ${p.platform} | ${p.pillar} | ${p.topic} | ${p.whyThisPost.replace(/\|/g, "\\|")} |`
+        );
+      }
+      lines.push("");
+    }
+
+    return any ? lines.join("\n") : null;
+  }
+
+  if (id === "creative-director") {
+    const requests = await listRequests();
+    const lines: string[] = ["# Creative Director Briefs", "", `Generated: ${stamp}`, ""];
+    let any = false;
+
+    for (const req of requests) {
+      const result = await getCreativeResult(req.id);
+      if (!result) continue;
+      any = true;
+      lines.push(`## ${req.companyName}`, "");
+      if (result.failedPostIds.length) {
+        lines.push(`Brief generation failed for: ${result.failedPostIds.join(", ")}`, "");
+      }
+
+      for (const b of result.briefs) {
+        lines.push(
+          `### ${b.postId} — ${b.conceptName} (score ${b.score.toFixed(1)})`,
+          "",
+          b.conceptOneSentence,
+          "",
+          `- Insight: ${b.insight}`,
+          `- Emotional tone: ${b.emotionalTone}`,
+          `- Visual: ${b.visualDirection.aesthetic} (${b.visualDirection.palette.join(", ")})`,
+          "",
+          "**Image prompt:**",
+          "",
+          "> " + b.imagePrompt.detailedPrompt.replace(/\n/g, "\n> "),
+          ""
+        );
+        if (b.videoPrompt) {
+          lines.push(
+            `**Video prompt** (${b.videoPrompt.totalDuration}):`,
+            "",
+            ...b.videoPrompt.scenes.map((s) => `- ${s.timing}: ${s.description}`),
+            ""
+          );
+        }
+        lines.push(
+          "**Copy direction:**",
+          "",
+          `- Hooks: ${b.copyDirection.hookExamples.join(" / ")}`,
+          `- Tone: ${b.copyDirection.tone}`,
+          `- Hashtags: ${b.copyDirection.hashtags.map((h) => `#${h}`).join(" ")}`,
+          "",
+          b.copyDirection.captionExample,
+          ""
+        );
+      }
+    }
+
+    return any ? lines.join("\n") : null;
   }
 
   return null;

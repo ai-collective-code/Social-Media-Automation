@@ -33,6 +33,17 @@ export type LlmConfig = {
   creativeModel: string;
 };
 
+/**
+ * Whether the Claude provider is available.
+ *
+ * Inlined rather than imported from `@/lib/anthropic` so that module — and the
+ * Anthropic SDK it pulls in — stays lazily loaded behind the dynamic import in
+ * `chat()`, and so there's no import cycle between the two files.
+ */
+function isAnthropicConfigured(): boolean {
+  return (process.env.ANTHROPIC_API_KEY ?? "").trim().length > 0;
+}
+
 export class LlmNotConfiguredError extends Error {
   constructor(missing: string) {
     super(
@@ -58,12 +69,21 @@ export function getLlmConfig(): LlmConfig {
 
 /** True when a call would succeed config-wise — for rendering UI state. */
 export function isLlmConfigured(): boolean {
+  // Either provider is enough: Claude needs only ANTHROPIC_API_KEY, whereas
+  // the OpenAI-compatible path needs a base URL and model name as well.
+  if (isAnthropicConfigured()) return true;
   try {
     getLlmConfig();
     return true;
   } catch {
     return false;
   }
+}
+
+/** Which provider a call would currently use — surfaced in the UI. */
+export function activeProvider(): "anthropic" | "openai-compatible" | "none" {
+  if (isAnthropicConfigured()) return "anthropic";
+  return isLlmConfigured() ? "openai-compatible" : "none";
 }
 
 /**
@@ -118,6 +138,14 @@ export async function chat(
   messages: ChatMessage[],
   options: ChatOptions = {}
 ): Promise<string> {
+  // Claude takes precedence when configured. Dispatching here rather than in
+  // each stage means chatJSON() and all six pipeline stages switch provider
+  // with no changes of their own.
+  if (isAnthropicConfigured()) {
+    const { anthropicChat } = await import("@/lib/anthropic");
+    return stripReasoning(await anthropicChat(messages, options));
+  }
+
   const cfg = getLlmConfig();
   const {
     creative = false,
