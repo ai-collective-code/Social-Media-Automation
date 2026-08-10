@@ -59,6 +59,16 @@ export default async function ResearchDetailPage({
       <TopBar
         title={request.companyName}
         subtitle={`vs. ${request.competitors.map((c) => c.name).join(", ")}`}
+        actions={
+          result ? (
+            <a
+              href={`/api/research/${id}/docx`}
+              className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-fg-2 transition-colors hover:border-accent hover:text-fg"
+            >
+              📄 Export to Word
+            </a>
+          ) : undefined
+        }
       />
 
       <div className="space-y-6 p-8">
