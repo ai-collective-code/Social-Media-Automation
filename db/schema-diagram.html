@@ -1,0 +1,641 @@
+<title>Content Engine — Postgres Schema</title>
+<style>
+  :root {
+    --bg: #14181f;
+    --bg-raised: #1a1f28;
+    --bg-inset: #0f1319;
+    --line: #2a313d;
+    --line-soft: #232a34;
+    --fg: #e8eaee;
+    --fg-2: #aab1bd;
+    --fg-3: #6e7683;
+    --accent: #e0a95e;
+    --accent-fg: #1a1206;
+    --teal: #6fb3ad;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Consolas", monospace;
+    --sans: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f2ee;
+    --bg-raised: #ffffff;
+    --bg-inset: #ebe8e2;
+    --line: #ddd8cf;
+    --line-soft: #e6e2da;
+    --fg: #1d1b16;
+    --fg-2: #55524a;
+    --fg-3: #8a867a;
+    --accent: #b3762a;
+    --accent-fg: #ffffff;
+    --teal: #3f7d76;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f2ee;
+      --bg-raised: #ffffff;
+      --bg-inset: #ebe8e2;
+      --line: #ddd8cf;
+      --line-soft: #e6e2da;
+      --fg: #1d1b16;
+      --fg-2: #55524a;
+      --fg-3: #8a867a;
+      --accent: #b3762a;
+      --accent-fg: #ffffff;
+      --teal: #3f7d76;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 24px 96px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .lede {
+    color: var(--fg-2);
+    font-size: 16px;
+    max-width: 62ch;
+    margin: 0 0 40px;
+  }
+  .lede code { color: var(--fg); }
+
+  h2 {
+    font-size: 20px;
+    margin: 56px 0 6px;
+    letter-spacing: -0.005em;
+  }
+  .section-note {
+    color: var(--fg-3);
+    font-size: 14px;
+    max-width: 68ch;
+    margin: 0 0 20px;
+  }
+
+  code, .mono { font-family: var(--mono); }
+
+  /* --- diagram card shell -------------------------------------------- */
+  .card {
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+  figure { margin: 0; }
+  figcaption {
+    font-size: 13px;
+    color: var(--fg-3);
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* --- mermaid host ---------------------------------------------------- */
+  .mermaid { min-width: 900px; }
+
+  /* --- design-decision cards ------------------------------------------- */
+  .decisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+  .decision {
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .decision .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .decision h3 {
+    font-size: 14.5px;
+    margin: 4px 0 8px;
+    color: var(--fg);
+  }
+  .decision p {
+    font-size: 13.5px;
+    color: var(--fg-2);
+    margin: 0;
+  }
+  .decision code {
+    font-size: 12.5px;
+    background: var(--bg-inset);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--teal);
+  }
+
+  /* --- table reference --------------------------------------------------*/
+  .tbl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .tbl {
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .tbl-head {
+    padding: 10px 14px;
+    background: var(--bg-inset);
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .tbl-head .card-tag {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--fg-3);
+    letter-spacing: 0.03em;
+  }
+  .tbl-body { padding: 10px 14px; }
+  .col-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 12.5px;
+    font-family: var(--mono);
+  }
+  .col-name { color: var(--fg); }
+  .col-name.key { color: var(--accent); }
+  .col-name.fk { color: var(--teal); }
+  .col-type { color: var(--fg-3); white-space: nowrap; }
+
+  /* --- render steps ------------------------------------------------------*/
+  ol.steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+  }
+  ol.steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    align-items: start;
+    font-size: 14px;
+    color: var(--fg-2);
+  }
+  ol.steps li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent-fg);
+    background: var(--accent);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  pre.cmd {
+    background: var(--bg-inset);
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--fg);
+    overflow-x: auto;
+    margin: 6px 0 0;
+  }
+
+  svg text { font-family: var(--sans); fill: currentColor; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Content Engine · data model</p>
+  <h1>From 16 JSON files to one relational schema</h1>
+  <p class="lede">
+    Every store under <code>data/*.json</code>, mapped onto Postgres — normalized where a
+    relationship is real, left as <code>JSONB</code> where a field is a document nobody
+    queries into. Runnable as-is against Render Postgres via <code>db/schema.sql</code>.
+  </p>
+
+  <h2>The full model</h2>
+  <p class="section-note">
+    Solid lines are foreign keys; <code>||--||</code> reads as one-to-one, <code>||--o{</code>
+    as one-to-many. <code>PK</code>/<code>FK</code> mark keys the way the SQL file does.
+  </p>
+  <div class="card">
+    <figure>
+      <pre class="mermaid">
+erDiagram
+    BRANDS ||--o{ RESEARCH_REQUESTS : "scopes"
+    BRANDS ||--o{ RUNS : "scopes"
+    RESEARCH_REQUESTS ||--o{ RUNS : "drives"
+    RESEARCH_REQUESTS ||--|| RESEARCH_RESULTS : "researched into"
+    RESEARCH_REQUESTS ||--|| TREND_RESULTS : "analyzed into"
+    RESEARCH_REQUESTS ||--|| STRATEGY_RESULTS : "planned into"
+    RESEARCH_REQUESTS ||--o{ BUCKET_POSTS : "scheduled into"
+    BUCKET_POSTS ||--|| CREATIVE_BRIEFS : "briefed by"
+    BUCKET_POSTS ||--|| QC_DECISIONS : "reviewed via"
+    BUCKET_POSTS ||--o| REEL_STORYBOARDS : "storyboarded as (video posts)"
+    BUCKET_POSTS ||--o{ REEL_RENDERS : "assembled into"
+    BUCKET_POSTS ||--o{ IMAGE_JOBS : "generates (post-level)"
+    BUCKET_POSTS ||--o| PROMPT_OVERRIDES : "refined via (post-level)"
+    REEL_STORYBOARDS ||--o{ REEL_SCENES : "contains, ordered"
+    REEL_SCENES ||--o| SCENE_CLIPS : "replaced by uploaded"
+    REEL_SCENES ||--o{ IMAGE_JOBS : "generates (scene-level)"
+    REEL_SCENES ||--o| PROMPT_OVERRIDES : "refined via (scene-level)"
+
+    BRANDS {
+        uuid id PK
+        text name
+        text never_say
+        text avoid_visuals
+        int image_seed
+        text language
+    }
+    RESEARCH_REQUESTS {
+        uuid id PK
+        uuid brand_id FK
+        text company_name
+        text status
+    }
+    RUNS {
+        uuid id PK
+        uuid brand_id FK
+        uuid request_id FK
+        text status
+        text stage
+    }
+    RESEARCH_RESULTS {
+        uuid request_id PK_FK
+        jsonb competitors
+        text_array key_gaps
+    }
+    TREND_RESULTS {
+        uuid request_id PK_FK
+        jsonb trends
+    }
+    STRATEGY_RESULTS {
+        uuid request_id PK_FK
+        jsonb pillars
+        jsonb buyer_journey
+    }
+    BUCKET_POSTS {
+        uuid id PK
+        uuid request_id FK
+        text slot_key
+        text day
+        text platform
+        text topic
+    }
+    CREATIVE_BRIEFS {
+        uuid post_id PK_FK
+        text concept_name
+        jsonb visual_direction
+        jsonb image_prompt
+        numeric score
+    }
+    QC_DECISIONS {
+        uuid post_id PK_FK
+        text status
+        jsonb checks
+    }
+    REEL_STORYBOARDS {
+        uuid post_id PK_FK
+        text cast
+        numeric transition_sec
+        bool burn_text
+    }
+    REEL_SCENES {
+        uuid id PK
+        uuid storyboard_id FK
+        int scene_index
+        text shot
+        numeric duration_sec
+        text motion
+    }
+    SCENE_CLIPS {
+        uuid scene_id PK_FK
+        text local_path
+        bool has_audio
+    }
+    REEL_RENDERS {
+        uuid id PK
+        uuid post_id FK
+        text status
+        text local_path
+    }
+    IMAGE_JOBS {
+        uuid id PK
+        uuid post_id FK
+        uuid scene_id FK
+        text status
+        text provider
+    }
+    PROMPT_OVERRIDES {
+        uuid id PK
+        uuid post_id FK
+        uuid scene_id FK
+        int revision
+    }
+      </pre>
+      <figcaption>
+        16 tables. Everything traces back to <code>brands</code> by a chain of
+        <code>ON DELETE CASCADE</code> — deleting a brand takes its whole history with it,
+        matching what the app already means by "delete this brand."
+      </figcaption>
+    </figure>
+  </div>
+
+  <h2>The one non-obvious call: polymorphic targets</h2>
+  <p class="section-note">
+    <code>image_jobs</code> and <code>prompt_overrides</code> each target either a whole post
+    (a feed image) or one scene of a reel (a video frame) — the app has always treated those
+    as the same kind of asset. Two nullable foreign keys plus a <code>CHECK</code> make
+    Postgres itself refuse a row that points at both, or neither.
+  </p>
+  <div class="card">
+    <figure role="img" aria-label="A row in image_jobs or prompt_overrides has two nullable foreign keys, post_id and scene_id, pointing at bucket_posts and reel_scenes respectively. A CHECK constraint, num_nonnulls(post_id, scene_id) = 1, permits exactly one of the two to be set, never both and never neither.">
+      <svg viewBox="0 0 860 260" width="100%" style="max-width:100%;height:auto;color:var(--fg)">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- bucket_posts -->
+        <rect x="30" y="30" width="190" height="56" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="125" y="54" text-anchor="middle" font-size="13" font-weight="600">bucket_posts</text>
+        <text x="125" y="72" text-anchor="middle" font-size="11" fill="var(--fg-3)" font-family="var(--mono)">id (PK)</text>
+
+        <!-- reel_scenes -->
+        <rect x="640" y="30" width="190" height="56" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="735" y="54" text-anchor="middle" font-size="13" font-weight="600">reel_scenes</text>
+        <text x="735" y="72" text-anchor="middle" font-size="11" fill="var(--fg-3)" font-family="var(--mono)">id (PK)</text>
+
+        <!-- center row: image_jobs / prompt_overrides -->
+        <rect x="290" y="150" width="280" height="70" rx="8" fill="var(--accent)" fill-opacity="0.12" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="430" y="177" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent)">image_jobs</text>
+        <text x="430" y="195" text-anchor="middle" font-size="12" fill="var(--fg-2)">/ prompt_overrides</text>
+        <text x="430" y="211" text-anchor="middle" font-size="10.5" fill="var(--fg-3)" font-family="var(--mono)">post_id · scene_id (both nullable)</text>
+
+        <!-- arrows -->
+        <line x1="125" y1="86" x2="360" y2="150" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <text x="205" y="122" font-size="11.5" font-family="var(--mono)" fill="var(--fg-2)">post_id →</text>
+
+        <line x1="735" y1="86" x2="500" y2="150" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)"/>
+        <text x="590" y="122" font-size="11.5" font-family="var(--mono)" fill="var(--fg-2)">← scene_id</text>
+
+        <!-- constraint note -->
+        <line x1="430" y1="220" x2="430" y2="240" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="3,3"/>
+        <text x="430" y="255" text-anchor="middle" font-size="11.5" font-family="var(--mono)" fill="var(--accent)">CHECK num_nonnulls(post_id, scene_id) = 1</text>
+      </svg>
+      <figcaption>
+        A row means "generate/refine this post" when <code>post_id</code> is set, or
+        "generate/refine this scene" when <code>scene_id</code> is — the constraint below
+        rules out the other two combinations at write time.
+      </figcaption>
+    </figure>
+  </div>
+
+  <h2>What the schema fixes, not just stores</h2>
+  <p class="section-note">
+    Three of these were real, already-shipped bugs under the JSON model — not hypothetical
+    risks.
+  </p>
+  <div class="decisions">
+    <div class="decision">
+      <p class="num">01 · already-shipped bug</p>
+      <h3>Post IDs collide across brands</h3>
+      <p>
+        <code>MON_001</code> is day-based, not unique. Every JSON store bolts on a
+        <code>requestId</code> and hopes every lookup remembers to filter by it.
+        <code>bucket_posts</code> gets a real UUID key; the collision has nowhere to happen.
+      </p>
+    </div>
+    <div class="decision">
+      <p class="num">02 · already-shipped bug</p>
+      <h3>The scene-ID string hack</h3>
+      <p>
+        Scenes are identified today by suffixing a post id (<code>THU_001__s2</code>) and
+        parsing it back apart. That already deleted the wrong scene's frame once, via a
+        prefix match. <code>reel_scenes</code> is its own table with its own key.
+      </p>
+    </div>
+    <div class="decision">
+      <p class="num">03 · silent drift</p>
+      <h3>Hand-set <code>updated_at</code></h3>
+      <p>
+        Sixteen call sites set the timestamp by hand today. A
+        <code>BEFORE UPDATE</code> trigger makes it correct on every write, unconditionally.
+      </p>
+    </div>
+    <div class="decision">
+      <p class="num">04 · deliberate non-change</p>
+      <h3><code>CHECK</code>, not native <code>ENUM</code></h3>
+      <p>
+        Status vocabularies here have already changed shape more than once. Widening an enum
+        is cheap in Postgres; narrowing or renaming one isn't. A <code>CHECK</code> is a
+        one-line <code>ALTER</code> either way.
+      </p>
+    </div>
+  </div>
+
+  <h2>Running it on Render</h2>
+  <div class="card">
+    <ol class="steps">
+      <li>Render dashboard → <strong>New → PostgreSQL</strong>, in the region closest to
+        wherever the app runs.</li>
+      <li>Copy the connection string — <strong>Internal</strong> if the app also runs on
+        Render, <strong>External</strong> for anywhere else.
+        <pre class="cmd">psql "$DATABASE_URL" -f db/schema.sql</pre>
+      </li>
+      <li>Set it in <code>web/.env.local</code> — Render's external URLs need
+        <code>sslmode=require</code> or the connection is refused.
+        <pre class="cmd">DATABASE_URL=postgres://user:pass@host/dbname?sslmode=require</pre>
+      </li>
+    </ol>
+  </div>
+
+  <h2>Table reference</h2>
+  <p class="section-note">Key columns only — full column list and every JSONB shape is
+    commented in <code>db/schema.sql</code> directly.</p>
+  <div class="tbl-grid">
+
+    <div class="tbl">
+      <div class="tbl-head">brands <span class="card-tag">root</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name">never_say</span><span class="col-type">text</span></div>
+        <div class="col-row"><span class="col-name">avoid_visuals</span><span class="col-type">text</span></div>
+        <div class="col-row"><span class="col-name">image_seed</span><span class="col-type">int</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">research_requests <span class="card-tag">1 : many</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">brand_id</span><span class="col-type">→ brands</span></div>
+        <div class="col-row"><span class="col-name">status</span><span class="col-type">text + CHECK</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">runs <span class="card-tag">1 : many</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">brand_id</span><span class="col-type">→ brands</span></div>
+        <div class="col-row"><span class="col-name fk">request_id</span><span class="col-type">→ requests, null</span></div>
+        <div class="col-row"><span class="col-name">stage</span><span class="col-type">text + CHECK</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">research_results <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">request_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">competitors</span><span class="col-type">jsonb</span></div>
+        <div class="col-row"><span class="col-name">key_gaps</span><span class="col-type">text[]</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">trend_results <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">request_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">trends</span><span class="col-type">jsonb</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">strategy_results <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">request_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">pillars</span><span class="col-type">jsonb</span></div>
+        <div class="col-row"><span class="col-name">buyer_journey</span><span class="col-type">jsonb</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">bucket_posts <span class="card-tag">the calendar</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">request_id</span><span class="col-type">→ requests</span></div>
+        <div class="col-row"><span class="col-name">slot_key</span><span class="col-type">"MON_001"</span></div>
+        <div class="col-row"><span class="col-name">hashtag_themes</span><span class="col-type">text[]</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">creative_briefs <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">post_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">visual_direction</span><span class="col-type">jsonb</span></div>
+        <div class="col-row"><span class="col-name">image_prompt</span><span class="col-type">jsonb</span></div>
+        <div class="col-row"><span class="col-name">score</span><span class="col-type">numeric(3,1)</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">qc_decisions <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">post_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">status</span><span class="col-type">text + CHECK</span></div>
+        <div class="col-row"><span class="col-name">checks</span><span class="col-type">jsonb</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">reel_storyboards <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">post_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">cast</span><span class="col-type">text</span></div>
+        <div class="col-row"><span class="col-name">transition_sec</span><span class="col-type">numeric(4,2)</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">reel_scenes <span class="card-tag">1 : many, ordered</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">storyboard_id</span><span class="col-type">→ storyboards</span></div>
+        <div class="col-row"><span class="col-name">scene_index</span><span class="col-type">int, UNIQUE w/ above</span></div>
+        <div class="col-row"><span class="col-name">motion</span><span class="col-type">text + CHECK</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">scene_clips <span class="card-tag">1 : 1</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">scene_id</span><span class="col-type">uuid PK/FK</span></div>
+        <div class="col-row"><span class="col-name">has_audio</span><span class="col-type">bool</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">reel_renders <span class="card-tag">history</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">post_id</span><span class="col-type">→ bucket_posts</span></div>
+        <div class="col-row"><span class="col-name">status</span><span class="col-type">text + CHECK</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">image_jobs <span class="card-tag">polymorphic, history</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">post_id</span><span class="col-type">→ posts, nullable</span></div>
+        <div class="col-row"><span class="col-name fk">scene_id</span><span class="col-type">→ scenes, nullable</span></div>
+        <div class="col-row"><span class="col-name">provider</span><span class="col-type">text + CHECK</span></div>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">prompt_overrides <span class="card-tag">polymorphic</span></div>
+      <div class="tbl-body">
+        <div class="col-row"><span class="col-name key">id</span><span class="col-type">uuid PK</span></div>
+        <div class="col-row"><span class="col-name fk">post_id</span><span class="col-type">→ posts, nullable</span></div>
+        <div class="col-row"><span class="col-name fk">scene_id</span><span class="col-type">→ scenes, nullable</span></div>
+        <div class="col-row"><span class="col-name">revision</span><span class="col-type">int</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
