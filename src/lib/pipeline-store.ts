@@ -1,6 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { dataDir } from "@/lib/app-paths";
+import { readDoc, writeDoc } from "@/lib/doc-store";
 
 /**
  * Result storage for workflows 2-4.5 (Trend Analysis, Content Strategy,
@@ -13,8 +11,6 @@ import { dataDir } from "@/lib/app-paths";
  * are `${id}.<stage>.json`, so there's no collision).
  */
 
-
-const RESULTS_DIR = path.join(dataDir(), "results");
 
 export type Trend = {
   name: string;
@@ -120,27 +116,14 @@ export type CreativeResult = {
   createdAt: string;
 };
 
-async function ensureDataDir() {
-  await fs.mkdir(RESULTS_DIR, { recursive: true });
-}
+const stageKey = (requestId: string, stage: string) => `results/${requestId}.${stage}.json`;
 
 async function readStage<T>(requestId: string, stage: string): Promise<T | undefined> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(path.join(RESULTS_DIR, `${requestId}.${stage}.json`), "utf-8");
-    return JSON.parse(raw) as T;
-  } catch {
-    return undefined;
-  }
+  return readDoc<T | undefined>(stageKey(requestId, stage), undefined);
 }
 
 async function writeStage(requestId: string, stage: string, data: unknown): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(
-    path.join(RESULTS_DIR, `${requestId}.${stage}.json`),
-    JSON.stringify(data, null, 2),
-    "utf-8"
-  );
+  await writeDoc(stageKey(requestId, stage), data);
 }
 
 export const getTrendResult = (requestId: string) => readStage<TrendResult>(requestId, "trends");

@@ -1,6 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { dataDir } from "@/lib/app-paths";
+import { readDoc, writeDoc } from "@/lib/doc-store";
 
 // Image-generation jobs for workflow 6 / Stream A (static images via Canva).
 //
@@ -11,7 +9,7 @@ import { dataDir } from "@/lib/app-paths";
 // PNG into public/generated/, and writes the result back onto the job.
 
 
-const JOBS_FILE = path.join(dataDir(), "image-jobs.json");
+const JOBS_KEY = "image-jobs.json";
 
 /**
  * "pending" means queued for Canva — waiting on a human to run it in a Claude
@@ -63,23 +61,12 @@ export type ImageJob = {
   error?: string;
 };
 
-async function ensureDataDir() {
-  await fs.mkdir(dataDir(), { recursive: true });
-}
-
 export async function listImageJobs(): Promise<ImageJob[]> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(JOBS_FILE, "utf-8");
-    return JSON.parse(raw) as ImageJob[];
-  } catch {
-    return [];
-  }
+  return readDoc<ImageJob[]>(JOBS_KEY, []);
 }
 
 export async function saveImageJobs(jobs: ImageJob[]): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(JOBS_FILE, JSON.stringify(jobs, null, 2), "utf-8");
+  await writeDoc(JOBS_KEY, jobs);
 }
 
 export async function createImageJob(

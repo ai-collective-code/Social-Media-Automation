@@ -1,6 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { dataDir } from "@/lib/app-paths";
+import { readDoc, writeDoc } from "@/lib/doc-store";
 
 /**
  * Background job tracking.
@@ -15,7 +13,7 @@ import { dataDir } from "@/lib/app-paths";
  */
 
 
-const JOBS_FILE = path.join(dataDir(), "jobs.json");
+const JOBS_KEY = "jobs.json";
 
 export type JobStatus = "running" | "complete" | "failed";
 
@@ -50,17 +48,11 @@ export function jobIdFor(
 }
 
 async function readAll(): Promise<Record<string, Job>> {
-  await fs.mkdir(dataDir(), { recursive: true });
-  try {
-    return JSON.parse(await fs.readFile(JOBS_FILE, "utf-8")) as Record<string, Job>;
-  } catch {
-    return {};
-  }
+  return readDoc<Record<string, Job>>(JOBS_KEY, {});
 }
 
 async function writeAll(jobs: Record<string, Job>): Promise<void> {
-  await fs.mkdir(dataDir(), { recursive: true });
-  await fs.writeFile(JOBS_FILE, JSON.stringify(jobs, null, 2), "utf-8");
+  await writeDoc(JOBS_KEY, jobs);
 }
 
 export async function getJob(id: string): Promise<Job | undefined> {

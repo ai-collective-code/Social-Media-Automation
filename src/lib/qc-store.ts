@@ -1,6 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { dataDir } from "@/lib/app-paths";
+import { readDoc, writeDoc } from "@/lib/doc-store";
 
 /**
  * Persisted Quality Check decisions (workflow 7).
@@ -12,7 +10,7 @@ import { dataDir } from "@/lib/app-paths";
  */
 
 
-const QC_FILE = path.join(dataDir(), "qc-decisions.json");
+const QC_KEY = "qc-decisions.json";
 
 export type QCStatus = "approved" | "revision_requested" | "pending";
 
@@ -40,24 +38,14 @@ export function qcKeyFor(postId: string, requestId?: string): string {
   return requestId ? `${requestId}:${postId}` : postId;
 }
 
-async function ensureDataDir() {
-  await fs.mkdir(dataDir(), { recursive: true });
-}
-
 export async function listDecisions(): Promise<Record<string, QCDecision>> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(QC_FILE, "utf-8");
-    return JSON.parse(raw) as Record<string, QCDecision>;
-  } catch {
-    return {};
-  }
+  return readDoc<Record<string, QCDecision>>(QC_KEY, {});
 }
 
 export async function saveDecision(decision: QCDecision): Promise<void> {
   const all = await listDecisions();
   all[qcKeyFor(decision.postId, decision.requestId)] = decision;
-  await fs.writeFile(QC_FILE, JSON.stringify(all, null, 2), "utf-8");
+  await writeDoc(QC_KEY, all);
 }
 
 /** Merge one post's checklist toggle without disturbing its status. */
@@ -77,7 +65,7 @@ export async function saveChecks(
     checks: { ...(existing?.checks ?? {}), ...checks },
     decidedAt: new Date().toISOString(),
   };
-  await fs.writeFile(QC_FILE, JSON.stringify(all, null, 2), "utf-8");
+  await writeDoc(QC_KEY, all);
 }
 
 /**

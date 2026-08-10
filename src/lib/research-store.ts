@@ -1,10 +1,8 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { dataDir } from "@/lib/app-paths";
+import { readDoc, writeDoc } from "@/lib/doc-store";
 
 
-const REQUESTS_FILE = path.join(dataDir(), "requests.json");
-const RESULTS_DIR = path.join(dataDir(), "results");
+const REQUESTS_KEY = "requests.json";
+const resultKey = (id: string) => `results/${id}.json`;
 
 export type Competitor = { name: string; url?: string };
 
@@ -48,18 +46,8 @@ export type ResearchResult = {
   sources: string[];
 };
 
-async function ensureDataDir() {
-  await fs.mkdir(RESULTS_DIR, { recursive: true });
-}
-
 export async function listRequests(): Promise<ResearchRequest[]> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(REQUESTS_FILE, "utf-8");
-    return JSON.parse(raw) as ResearchRequest[];
-  } catch {
-    return [];
-  }
+  return readDoc<ResearchRequest[]>(REQUESTS_KEY, []);
 }
 
 export async function getRequest(id: string): Promise<ResearchRequest | undefined> {
@@ -68,8 +56,7 @@ export async function getRequest(id: string): Promise<ResearchRequest | undefine
 }
 
 export async function saveRequests(requests: ResearchRequest[]): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(REQUESTS_FILE, JSON.stringify(requests, null, 2), "utf-8");
+  await writeDoc(REQUESTS_KEY, requests);
 }
 
 export async function createRequest(
@@ -88,22 +75,11 @@ export async function createRequest(
 }
 
 export async function getResult(id: string): Promise<ResearchResult | undefined> {
-  await ensureDataDir();
-  try {
-    const raw = await fs.readFile(path.join(RESULTS_DIR, `${id}.json`), "utf-8");
-    return JSON.parse(raw) as ResearchResult;
-  } catch {
-    return undefined;
-  }
+  return readDoc<ResearchResult | undefined>(resultKey(id), undefined);
 }
 
 export async function saveResult(result: ResearchResult): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(
-    path.join(RESULTS_DIR, `${result.requestId}.json`),
-    JSON.stringify(result, null, 2),
-    "utf-8"
-  );
+  await writeDoc(resultKey(result.requestId), result);
 }
 
 export async function setRequestStatus(
